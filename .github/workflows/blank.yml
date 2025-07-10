@@ -1,4 +1,4 @@
-name: CI-CD Deploy from JFrog
+name: CI-CD with kind
 
 on:
   push:
@@ -10,32 +10,54 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    env:
+      CLUSTER_NAME: demo-cluster
+      KIND_VERSION: v0.23.0
+
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up kubectl config
-        run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > ~/.kube/config
+      # Install Docker (Ubuntu runners already have Docker)
+      # But good to ensure we have the latest
 
-      - name: Create JFrog image pull secret
-        run: |
-          kubectl delete secret jfrog-creds --ignore-not-found
+      - name: Set up kind
+        uses: helm/kind-action@v1.10.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          cluster_name: ${{ env.CLUSTER_NAME }}
 
+      - name: Create jfrog-creds secret
+        run: |
           kubectl create secret docker-registry jfrog-creds \
             --docker-server=${{ secrets.ARTIFACTORY_URL }} \
             --docker-username=${{ secrets.ARTIFACTORY_USERNAME }} \
             --docker-password=${{ secrets.ARTIFACTORY_PASSWORD }} \
             --docker-email=viveksaireddykoduru@gmail.com
 
-      - name: Deploy to Kubernetes
+      - name: Deploy Deployment YAML
         run: |
           kubectl apply -f deployment.yaml
+
+      - name: Deploy Service YAML
+        run: |
           kubectl apply -f service.yaml
 
-      - name: Check rollout status
-        run: kubectl rollout status deployment/my-app
+      - name: Wait for deployment rollout
+        run: |
+          kubectl rollout status deployment/my-app
 
-      - name: Get service info
-        run: kubectl get svc my-app-service
+      - name: Inspect kind-control-plane container
+        run: |
+          docker inspect kind-control-plane > kind-control-plane.json
+          cat kind-control-plane.json
+
+      - name: Extract kind-control-plane IP address
+        id: get_ip
+        run: |
+          IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)
+          echo "KIND_IP=$IP" >> $GITHUB_OUTPUT
+
+      - name: Show app URL
+        run: |
+          echo "Your app should be accessible at http://${{ steps.get_ip.outputs.KIND_IP }}:30912/api/hello"
