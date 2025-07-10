@@ -1,4 +1,4 @@
-name: Deploy from JFrog
+name: CI-CD Deploy from JFrog
 
 on:
   push:
@@ -11,15 +11,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up kubectl
+      - name: Set up kubectl config
         run: |
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > ~/.kube/config
 
-      - name: Create (or update) jfrog image pull secret
+      - name: Create JFrog image pull secret
         run: |
           kubectl delete secret jfrog-creds --ignore-not-found
 
@@ -27,17 +27,15 @@ jobs:
             --docker-server=${{ secrets.ARTIFACTORY_URL }} \
             --docker-username=${{ secrets.ARTIFACTORY_USERNAME }} \
             --docker-password=${{ secrets.ARTIFACTORY_PASSWORD }} \
-            --docker-email=none@example.com
+            --docker-email=viveksaireddykoduru@gmail.com
 
       - name: Deploy to Kubernetes
         run: |
           kubectl apply -f deployment.yaml
           kubectl apply -f service.yaml
 
-      - name: Check deployment rollout
-        run: |
-          kubectl rollout status deployment/my-app
+      - name: Check rollout status
+        run: kubectl rollout status deployment/my-app
 
       - name: Get service info
-        run: |
-          kubectl get svc my-app-service
+        run: kubectl get svc my-app-service
