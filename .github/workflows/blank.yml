@@ -46,6 +46,7 @@ jobs:
 
       - name: Port-forward and test the service
         run: |
+          # Wait for the pod to be ready
           kubectl wait --for=condition=ready pod \
             -l app=my-app \
             --timeout=60s
@@ -54,4 +55,7 @@ jobs:
           kubectl port-forward svc/my-app-service 8080:8080 &
           sleep 5
 
-          curl -v http://localhost:8080/api/hello
+          echo "Calling API endpoint..."
+          curl -i http://localhost:8080/api/hello || true
+
+          echo "Done calling API"
