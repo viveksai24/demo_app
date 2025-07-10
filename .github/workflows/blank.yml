@@ -1,4 +1,4 @@
-name: CI-CD with kind
+name: CI-CD with kind (local IP testing)
 
 on:
   workflow_dispatch:
@@ -61,4 +61,3 @@ jobs:
 
           # Call the service using cluster node IP + NodePort
           curl -v http://$KIND_IP:$NODE_PORT/hello || true
-
