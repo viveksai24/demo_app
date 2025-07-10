@@ -18,9 +18,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Install Docker (Ubuntu runners already have Docker)
-      # But good to ensure we have the latest
-
       - name: Set up kind
         uses: helm/kind-action@v1.10.0
         with:
@@ -47,17 +44,17 @@ jobs:
         run: |
           kubectl rollout status deployment/my-app
 
-      - name: Inspect kind-control-plane container
+      - name: Test service using port-forward
         run: |
-          docker inspect kind-control-plane > kind-control-plane.json
-          cat kind-control-plane.json
+          kubectl wait --for=condition=ready pod \
+            -l app=my-app \
+            --timeout=60s
 
-      - name: Extract kind-control-plane IP address
-        id: get_ip
-        run: |
-          IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)
-          echo "KIND_IP=$IP" >> $GITHUB_OUTPUT
+          NODE_PORT=$(kubectl get svc my-app-service -o jsonpath='{.spec.ports[0].nodePort}')
 
-      - name: Show app URL
-        run: |
-          echo "Your app should be accessible at http://${{ steps.get_ip.outputs.KIND_IP }}:30912/api/hello"
+          echo "NodePort = $NODE_PORT"
+
+          kubectl port-forward svc/my-app-service 8080:$NODE_PORT &
+          sleep 5
+
+          curl http://localhost:8080/api/hello
