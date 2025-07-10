@@ -1,4 +1,4 @@
-name: CI-CD with kind (local IP testing)
+name: CI-CD with kind
 
 on:
   workflow_dispatch:
