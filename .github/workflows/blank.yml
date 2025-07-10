@@ -1,55 +1,28 @@
-name: CI-CD Pipeline
+name: Deploy from JFrog
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-
-    env:
-      IMAGE_NAME: demo-app
-      IMAGE_TAG: latest
-      ARTIFACTORY_REPO: demo-docker-local
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Grant execute permission to gradlew
-        run: chmod +x ./gradlew
-
-      - name: Build Java app with Gradle
-        run: ./gradlew clean build
-
-      - name: Docker login to Artifactory
-        run: |
-          echo "${{ secrets.ARTIFACTORY_PASSWORD }}" | docker login ${{ secrets.ARTIFACTORY_URL }} -u ${{ secrets.ARTIFACTORY_USERNAME }} --password-stdin
-
-      - name: Build Docker image
-        run: |
-          docker build -t ${{ secrets.ARTIFACTORY_URL }}/${{ env.ARTIFACTORY_REPO }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} .
-
-      - name: Push Docker image to Artifactory
-        run: |
-          docker push ${{ secrets.ARTIFACTORY_URL }}/${{ env.ARTIFACTORY_REPO }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
       - name: Set up kubectl
         run: |
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > ~/.kube/config
 
-      - name: Create JFrog image pull secret in Kubernetes
+      - name: Create (or update) jfrog image pull secret
         run: |
           kubectl delete secret jfrog-creds --ignore-not-found
+
           kubectl create secret docker-registry jfrog-creds \
             --docker-server=${{ secrets.ARTIFACTORY_URL }} \
             --docker-username=${{ secrets.ARTIFACTORY_USERNAME }} \
@@ -61,7 +34,10 @@ jobs:
           kubectl apply -f deployment.yaml
           kubectl apply -f service.yaml
 
-      - name: Verify Deployment
+      - name: Check deployment rollout
         run: |
           kubectl rollout status deployment/my-app
+
+      - name: Get service info
+        run: |
           kubectl get svc my-app-service
