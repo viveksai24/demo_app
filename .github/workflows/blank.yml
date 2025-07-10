@@ -1,6 +1,9 @@
-name: CI-CD with kind (local IP testing)
+name: CI-CD with kind
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -41,23 +44,18 @@ jobs:
         run: |
           kubectl rollout status deployment/my-app
 
-      - name: Get NodePort and test via cluster IP
+      - name: Port-forward and test the service
         run: |
+          # Wait for the pod to be ready
           kubectl wait --for=condition=ready pod \
             -l app=my-app \
             --timeout=60s
 
-          # Get the kind control-plane container IP
-          KIND_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)
+          # Port-forward local 8080 -> service port 8080
+          kubectl port-forward svc/my-app-service 8080:8080 &
+          sleep 5
 
-          echo "Kind control-plane IP: $KIND_IP"
+          echo "Calling API endpoint..."
+          curl -i http://localhost:8080/hello || true
 
-          # Get NodePort of the service
-          NODE_PORT=$(kubectl get svc my-app-service -o jsonpath='{.spec.ports[0].nodePort}')
-
-          echo "NodePort: $NODE_PORT"
-
-          echo "Calling the service via kind node IP..."
-
-          # Call the service using cluster node IP + NodePort
-          curl -v http://$KIND_IP:$NODE_PORT/hello || true
+          echo "Done calling API"
