@@ -9,7 +9,7 @@ jobs:
 
     env:
       IMAGE_NAME: my-nginx-app
-      IMAGE-TAG: latest
+      IMAGE_TAG: latest
     
     steps:
       - name: checkout repository
@@ -28,10 +28,10 @@ jobs:
           EOF
       
       - name: Build Docker
-        run: docker build -t $IMAGE_NAME:$IMAGE-TAG .
+        run: docker build -t $IMAGE_NAME:$IMAGE_TAG .
 
       - name: Run Docker Container
-        run: docker run -d --name nginx-container $IMAGE_NAME:$IMAGE-TAG
+        run: docker run -d --name nginx-container $IMAGE_NAME:$IMAGE_TAG
       
       - name: Stop Container
         if: always()
