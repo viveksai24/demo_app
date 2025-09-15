@@ -2,6 +2,7 @@ name: task3-jenkins-backup
 on:
   schedule:
     - cron: "*/1 * * * *"
+  workflow_dispatch:
 
 jobs:
   backup:
