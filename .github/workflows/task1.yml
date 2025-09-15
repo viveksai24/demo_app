@@ -27,13 +27,7 @@ jobs:
         run: |
           cd time-tracker
           mvn -B 0DskipTests clean package
-
-      - name: upload Jar Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: time-tracker-jar
-          path: time-tracker/target/*.jar
-      
+    
       - name: cleanup
         if: always()
         run: rm -rf time-tracker
