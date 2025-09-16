@@ -1,0 +1,38 @@
+pipeline{
+    agent any
+    environment{
+        BACKUP_DIR ="/var/backups/jenkins"
+        JENKINS_HOME = "/var/lib/jenkins"
+        TIMESTAMP = "${new Date().format('yyyyMMdd-HHmmss')}"
+    }
+    triggers{
+        cron('*/1 * * * *')
+    }
+    stages{
+        stage('BACKUP'){
+            steps{
+                sh''' 
+                    sudo mkdir -p $BACKUP_DIR
+                    sudo tar -czf $BACKUP_DIR/jenkins-backup-$TIMESTAMP.tar.gz -C $JENKINS_HOME .
+                '''
+                echo "Backup ccreated at $BACKUP_DIR/jenkins-backup-TIMESTAMP.tar.gz"
+            }
+        }
+        stage('CleanUp Old Backups'){
+            steps{
+                sh'''
+                    sudo find $BACKUP_DIR -type f -name "jenkins-backup-*.tar.gz" -mtime +7 -exec rm {} \\;
+                '''
+                echo "Old backups cleaned up"
+            }
+        }
+    }
+    post{
+        success{
+            echo "backup successfull"
+        }
+        failure{
+            echo "backup failed"
+        }
+    }
+}
