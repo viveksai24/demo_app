@@ -1,0 +1,29 @@
+name: task2-install-nginx
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: install nginx
+        run: |
+          sudo apt update -y
+          sudo apt install -y nginx
+          sudo systemctl start nginx
+          sudo systemctl enable nginx
+      
+      - name: post Success
+        if: success()
+        run: echo "build Successfulll"
+
+      - name: post failue
+        if: failure()
+        run: echo "failed"
