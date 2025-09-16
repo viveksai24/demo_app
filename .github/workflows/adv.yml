@@ -1,0 +1,61 @@
+name: Deploy to EKS
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: eu-north-1
+  CLUSTER_NAME: tourism-cluster
+  ECR_REPOSITORY: tourism-site
+  DEPLOYMENT_NAME: tourism-deployment
+  NAMESPACE: default
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::528424611315:role/ec2-eks-ecr-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to ECR
+        run: |
+          IMAGE_TAG=latest
+          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          IMAGE_URI=$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
+          echo "Building Docker image..."
+          docker build -t $IMAGE_URI .
+          echo "Pushing Docker image..."
+          docker push $IMAGE_URI
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+
+      - name: Deploy to EKS
+        run: |
+          kubectl set image deployment/${DEPLOYMENT_NAME} \
+            ${DEPLOYMENT_NAME}=$IMAGE_URI \
+            --namespace $NAMESPACE || \
+          kubectl create deployment ${DEPLOYMENT_NAME} \
+            --image=$IMAGE_URI --namespace $NAMESPACE
+
+          kubectl expose deployment ${DEPLOYMENT_NAME} \
+            --type=LoadBalancer --port=80 --namespace $NAMESPACE || true
