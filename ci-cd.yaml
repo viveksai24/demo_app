@@ -1,67 +1,61 @@
-name: CI-CD Pipeline
+name: CI-CD with kind
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     env:
-      IMAGE_NAME: demo-app
-      IMAGE_TAG: latest
-      ARTIFACTORY_REPO: demo-docker-local
+      CLUSTER_NAME: demo-cluster
+      KIND_VERSION: v0.23.0
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK
-        uses: actions/setup-java@v4
+      - name: Set up kind
+        uses: helm/kind-action@v1.10.0
         with:
-          distribution: temurin
-          java-version: '21'
+          version: ${{ env.KIND_VERSION }}
+          cluster_name: ${{ env.CLUSTER_NAME }}
 
-      - name: Grant execute permission to gradlew
-        run: chmod +x ./gradlew
-
-      - name: Build Java app with Gradle
-        run: ./gradlew clean build
-
-      - name: Docker login to Artifactory
+      - name: Create jfrog-creds secret
         run: |
-          echo "${{ secrets.ARTIFACTORY_PASSWORD }}" | docker login ${{ secrets.ARTIFACTORY_URL }} -u ${{ secrets.ARTIFACTORY_USERNAME }} --password-stdin
-
-      - name: Build Docker image
-        run: |
-          docker build -t ${{ secrets.ARTIFACTORY_URL }}/${{ env.ARTIFACTORY_REPO }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} .
-
-      - name: Push Docker image to Artifactory
-        run: |
-          docker push ${{ secrets.ARTIFACTORY_URL }}/${{ env.ARTIFACTORY_REPO }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
-
-      - name: Set up kubectl
-        run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG_DATA }}" | base64 -d > ~/.kube/config
-
-      - name: Create JFrog image pull secret in Kubernetes
-        run: |
-          kubectl delete secret jfrog-creds --ignore-not-found
           kubectl create secret docker-registry jfrog-creds \
             --docker-server=${{ secrets.ARTIFACTORY_URL }} \
             --docker-username=${{ secrets.ARTIFACTORY_USERNAME }} \
             --docker-password=${{ secrets.ARTIFACTORY_PASSWORD }} \
-            --docker-email=none@example.com
+            --docker-email=viveksaireddykoduru@gmail.com
 
-      - name: Deploy to Kubernetes
+      - name: Deploy Deployment YAML
         run: |
           kubectl apply -f deployment.yaml
+
+      - name: Deploy Service YAML
+        run: |
           kubectl apply -f service.yaml
 
-      - name: Verify Deployment
+      - name: Wait for deployment rollout
         run: |
           kubectl rollout status deployment/my-app
-          kubectl get svc my-app-service
+
+      - name: Port-forward and test the service
+        run: |
+          # Wait for the pod to be ready
+          kubectl wait --for=condition=ready pod \
+            -l app=my-app \
+            --timeout=60s
+
+          # Port-forward local 8080 -> service port 8080
+          kubectl port-forward svc/my-app-service 8080:8080 &
+          sleep 5
+
+          echo "Calling API endpoint..."
+          curl -i http://localhost:8080/hello || true
+
+          echo "Done calling API"
