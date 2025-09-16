@@ -1,0 +1,23 @@
+pipeline{
+    agent any
+    stages{
+        stage('Install nginx'){
+            steps{
+                sh'''
+                    sudo apt update -y
+                    sudo apt install -y nginx
+                    sudo systemctl start nginx
+                    sudo systemctl enable nginx
+                '''
+            }
+        }
+    }
+    post{
+        success{
+            echo "build successfull"
+        }
+        failure{
+            echo "failed"
+        }
+    }
+}
