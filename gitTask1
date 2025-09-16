@@ -1,0 +1,33 @@
+name: task1-java-mavenbuild
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: clone-timetracker
+        run: git clone https://github.com/taylor-training/time-tracker.git
+
+      - name: Set Up Jdk 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+           
+      - name: maven build
+        run: |
+          cd time-tracker
+          mvn -B -DskipTests clean package
+    
+      - name: cleanup
+        if: always()
+        run: rm -rf time-tracker
