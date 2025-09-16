@@ -1,0 +1,26 @@
+pipeline{
+    agent any
+    tools{
+        maven "maven"
+    }
+    stages{
+        stage('checkout'){
+            steps{
+                sh 'git clone https://github.com/taylor-training/time-tracker.git'
+            }
+        }
+        stage('Build'){
+            steps{
+                sh '''
+                    cd time-tracker
+                    mvn -B -DskipTests clean package
+                '''
+            }
+        }
+    }
+    post{
+        always{
+            cleanWs()
+        }
+    }
+}
